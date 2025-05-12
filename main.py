@@ -1,4 +1,8 @@
 import pandas as pd
+import numpy as np 
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import seaborn as sns
 
 # Load and clean the CSV
 df1 = pd.read_csv("Miner_Metrics.csv")
@@ -64,7 +68,42 @@ merged = pd.merge(pivoted1, pivoted2, on=['Time', 'Miner'], how='outer' )
 
 
 #_____________________Merge data ready for Analysis
-print(merged)
 
-#_________________
+merged['Hashrate_Power'] = np.round(np.divide(merged['Hashrate'], merged['Power']),2)
 
+# Convert time column and extract day
+
+
+merged['Time'] = pd.to_datetime(merged['Time'], errors='coerce')
+merged = merged.dropna(subset=['Time'])
+
+merged['Time'] = pd.to_datetime(merged['Time'])
+merged['YearMonthDate'] = merged['Time'].dt.to_period('D')
+
+# Group by day
+Feb_avg = merged.groupby('YearMonthDate').agg({
+    'Hashrate': 'mean',
+    'Power': 'mean',
+    'Hashrate_Power': 'mean',
+    'Intake': 'mean',
+    'Minerfans': 'mean'
+}).round(2)
+
+# Convert Period[D] index to datetime
+Feb_avg = Feb_avg.copy()
+Feb_avg = Feb_avg.reset_index()  # This brings 'DayPeriod' from index to a column
+Feb_avg['YearMonthDate'] = Feb_avg['YearMonthDate'].dt.to_timestamp()
+
+# Drop NaNs and clip extreme values
+Feb_avg = Feb_avg.dropna(subset=['YearMonthDate', 'Hashrate_Power'])
+Feb_avg = Feb_avg[Feb_avg['Hashrate_Power'] < 3000]
+
+#plot 
+
+plt.figure(figsize=(12, 6))
+plt.bar(Feb_avg['YearMonthDate'], Feb_avg['Hashrate_Power'])
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
